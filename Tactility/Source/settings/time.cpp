@@ -11,6 +11,10 @@
 
 #include <lvgl/widgets/statusbar.h>
 
+#include <generated_assets.h>
+
+#include <string_view>
+
 #ifdef ESP_PLATFORM
 #include <ctime>
 #endif
@@ -37,11 +41,50 @@ bool getPreferencesPath(std::string& outPath) {
     return true;
 }
 
+void saveTimeZoneCode(const std::string& code) {
+    std::string path;
+    if (getPreferencesPath(path)) {
+        Preferences* preferences = preferences_open(path.c_str());
+        if (preferences != nullptr) {
+            preferences_put_string(preferences, TIMEZONE_PREFERENCES_KEY_CODE, code.c_str());
+            preferences_close(preferences);
+        }
+    }
+}
+
 } // namespace
 
+bool findTimeZoneCode(const std::string& name, std::string& outCode) {
+    const std::string_view csv(reinterpret_cast<const char*>(asset_timezones_csv), asset_timezones_csv_size);
+    // Lines look like "Europe/Amsterdam","CET-1CEST,M3.5.0,M10.5.0/3"
+    const std::string prefix = "\"" + name + "\",\"";
+    size_t start = 0;
+    while (start < csv.size()) {
+        size_t end = csv.find('\n', start);
+        if (end == std::string_view::npos) {
+            end = csv.size();
+        }
+        const auto line = csv.substr(start, end - start);
+        if (line.starts_with(prefix) && line.size() > prefix.size() && line.ends_with('"')) {
+            outCode = line.substr(prefix.size(), line.size() - prefix.size() - 1);
+            return true;
+        }
+        start = end + 1;
+    }
+    return false;
+}
+
 void initTimeZone() {
+    auto code = getTimeZoneCode();
+    // The saved code is a copy of the timezones.csv row from when the time zone was picked. When a
+    // country changes its rules, a firmware update ships a new row, so use that for the same name.
+    std::string bundled_code;
+    if (hasTimeZone() && findTimeZoneCode(getTimeZoneName(), bundled_code) && bundled_code != code) {
+        LOG_I(TAG, "Updating the time zone code from %s to %s", code.c_str(), bundled_code.c_str());
+        saveTimeZoneCode(bundled_code);
+        code = bundled_code;
+    }
 #ifdef ESP_PLATFORM
-    auto code= getTimeZoneCode();
     if (!code.empty()) {
         setenv("TZ", code.c_str(), 1);
         tzset();
