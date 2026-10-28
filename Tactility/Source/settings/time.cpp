@@ -54,8 +54,7 @@ void saveTimeZoneCode(const std::string& code) {
 
 } // namespace
 
-bool findTimeZoneCode(const std::string& name, std::string& outCode) {
-    const std::string_view csv(reinterpret_cast<const char*>(asset_timezones_csv), asset_timezones_csv_size);
+bool findTimeZoneCode(std::string_view csv, const std::string& name, std::string& outCode) {
     // Lines look like "Europe/Amsterdam","CET-1CEST,M3.5.0,M10.5.0/3"
     const std::string prefix = "\"" + name + "\",\"";
     size_t start = 0;
@@ -64,7 +63,10 @@ bool findTimeZoneCode(const std::string& name, std::string& outCode) {
         if (end == std::string_view::npos) {
             end = csv.size();
         }
-        const auto line = csv.substr(start, end - start);
+        auto line = csv.substr(start, end - start);
+        if (line.ends_with('\r')) {
+            line.remove_suffix(1); // CRLF line ending
+        }
         if (line.starts_with(prefix) && line.size() > prefix.size() && line.ends_with('"')) {
             outCode = line.substr(prefix.size(), line.size() - prefix.size() - 1);
             return true;
@@ -72,6 +74,11 @@ bool findTimeZoneCode(const std::string& name, std::string& outCode) {
         start = end + 1;
     }
     return false;
+}
+
+bool findTimeZoneCode(const std::string& name, std::string& outCode) {
+    const std::string_view csv(reinterpret_cast<const char*>(asset_timezones_csv), asset_timezones_csv_size);
+    return findTimeZoneCode(csv, name, outCode);
 }
 
 void initTimeZone() {

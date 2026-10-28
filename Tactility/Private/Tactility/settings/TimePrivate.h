@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 
 namespace tt::settings {
 
@@ -14,5 +15,14 @@ void initTimeZone();
  * @return true when found
  */
 bool findTimeZoneCode(const std::string& name, std::string& outCode);
+
+/**
+ * Find the code of a time zone in CSV text with the format of timezones.csv (LF or CRLF line endings)
+ * @param[in] csv the CSV text
+ * @param[in] name the time zone name, e.g. "Europe/Amsterdam"
+ * @param[out] outCode the code, set only when found
+ * @return true when found
+ */
+bool findTimeZoneCode(std::string_view csv, const std::string& name, std::string& outCode);
 
 } // namespace tt::settings

@@ -7,6 +7,7 @@
 #include <tactility/preferences.h>
 
 #include <string>
+#include <string_view>
 
 using namespace tt;
 
@@ -45,6 +46,17 @@ TEST_CASE("findTimeZoneCode only matches whole names") {
     CHECK_EQ(code, "unchanged");
     CHECK(settings::findTimeZoneCode("Etc/GMT+1", code));
     CHECK_EQ(code, "<-01>1");
+}
+
+TEST_CASE("findTimeZoneCode accepts CRLF line endings") {
+    const std::string_view csv = "\"Africa/Abidjan\",\"GMT0\"\r\n\"America/Winnipeg\",\"EST5\"\r\n\"Etc/Zulu\",\"UTC0\"\r";
+    std::string code;
+    CHECK(settings::findTimeZoneCode(csv, "Africa/Abidjan", code));
+    CHECK_EQ(code, "GMT0");
+    CHECK(settings::findTimeZoneCode(csv, "America/Winnipeg", code));
+    CHECK_EQ(code, "EST5");
+    CHECK(settings::findTimeZoneCode(csv, "Etc/Zulu", code)); // last row, no line feed
+    CHECK_EQ(code, "UTC0");
 }
 
 TEST_CASE("initTimeZone replaces an outdated saved code with the bundled one") {
